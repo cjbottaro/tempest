@@ -26,7 +26,7 @@ defmodule Counter do
   end
 
   def done(context) do
-    emit(context, context.state)
+    emit(context, get_state(context))
   end
 
 end
@@ -45,11 +45,16 @@ defmodule Summer do
   end
 
   def done(context) do
-    IO.puts context.state
+    IO.puts get_state(context)
   end
 
 end
 
+# input --> repeater --> counter --\
+# input --> repeater --> counter ---\
+#                                    |--> summer
+# input --> repeater --> counter ---/
+# input --> repeater --> counter --/
 topology = Topology.new
   |> Topology.add_processor(:input, RangeEmitter, concurrency: 4, routing: :shuffle)
   |> Topology.add_processor(:repeater, Identity, concurrency: 4)
