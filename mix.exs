@@ -2,12 +2,15 @@ defmodule Tempest.Mixfile do
   use Mix.Project
 
   def project do
-    [app: :tempest,
-     version: "0.0.1",
-     elixir: "~> 1.2",
-     build_embedded: Mix.env == :prod,
-     start_permanent: Mix.env == :prod,
-     deps: deps]
+    [
+      app: :tempest,
+      version: "0.0.1",
+      elixir: "~> 1.2",
+      build_embedded: Mix.env == :prod,
+      start_permanent: Mix.env == :prod,
+      deps: deps,
+      elixirc_paths: elixirc_paths(Mix.env)
+    ]
   end
 
   # Configuration for the OTP application
@@ -33,4 +36,13 @@ defmodule Tempest.Mixfile do
       {:memcache_client, "~> 1.0.0"}
     ]
   end
+
+  defp elixirc_paths(:examples) do
+    ["lib", "examples"]
+  end
+
+  defp elixirc_paths(_) do
+    ["lib"]
+  end
+
 end

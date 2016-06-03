@@ -1,26 +1,26 @@
-alias Tempest.Topology
-alias Tempest.Processor
-
-Tempest.Repo.start_link
-
-topology = Topology.new
-  |> Topology.add_processor(Processor.Application)
-  |> Topology.add_processor(Processor.User)
-  |> Topology.add_processor(Processor.ApplicationUserJoiner, 2)
-  |> Topology.add_link(Processor.Application, Processor.User)
-  |> Topology.add_link(Processor.Application, Processor.ApplicationUserJoiner, :group, field: :user_id)
-  |> Topology.add_link(Processor.User, Processor.ApplicationUserJoiner, :group, field: :id)
-  |> Topology.start
-
-pid = topology.processors[Processor.Application].pids |> Enum.at(0)
-Tempest.Repo.all(Tempest.Application) |> Enum.each(fn application ->
-  GenServer.cast(pid, { :ingest, application })
-end)
-
-GenServer.call(pid, :done)
-IO.puts "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-IO.puts "!!!!!!!!!!!!!!!!!! EXITING PROGRAM !!!!!!!!!!!!!!!!!!!!!"
-IO.puts "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+# alias Tempest.Topology
+# alias Tempest.Processor
+#
+# Tempest.Repo.start_link
+#
+# topology = Topology.new
+#   |> Topology.add_processor(Processor.Application)
+#   |> Topology.add_processor(Processor.User)
+#   |> Topology.add_processor(Processor.ApplicationUserJoiner, 2)
+#   |> Topology.add_link(Processor.Application, Processor.User)
+#   |> Topology.add_link(Processor.Application, Processor.ApplicationUserJoiner, :group, field: :user_id)
+#   |> Topology.add_link(Processor.User, Processor.ApplicationUserJoiner, :group, field: :id)
+#   |> Topology.start
+#
+# pid = topology.processors[Processor.Application].pids |> Enum.at(0)
+# Tempest.Repo.all(Tempest.Application) |> Enum.each(fn application ->
+#   GenServer.cast(pid, { :ingest, application })
+# end)
+#
+# GenServer.call(pid, :done)
+# IO.puts "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+# IO.puts "!!!!!!!!!!!!!!!!!! EXITING PROGRAM !!!!!!!!!!!!!!!!!!!!!"
+# IO.puts "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 
 
 # { :ok, pid } = GenServer.start_link(Processor.Application, %{ topo: topology, state: %{} })

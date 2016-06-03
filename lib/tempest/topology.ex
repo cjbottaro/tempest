@@ -1,117 +1,106 @@
 defmodule Tempest.Topology do
   defstruct [processors: %{}, links: []]
 
+  alias Tempest.Processor
+
   def new do
     %Tempest.Topology{}
   end
 
-  def add_processor(topology, module, concurrency \\ 1) do
+  def add_processor(topology, name, module, options \\ []) do
+    options = Enum.into(options, %{})
+    router_options = Map.get(options, :routing)
+    options = Map.delete(options, :routing)
+
+    cond do
+      !is_binary(name) && !is_atom(name) ->
+        raise ArgumentError, "#{inspect name} must be a string or atom"
+      Map.has_key?(topology.processors, name) ->
+        raise ArgumentError, "#{inspect name} already defined"
+      true ->
+        nil
+    end
+
+    attributes = Map.merge(options, %{ name: name, module: module })
+    processor = Processor.new(attributes)
+
+    pids = Enum.map(1..processor.concurrency, fn i ->
+      { :ok, pid } = GenServer.start_link(Tempest.Worker, name)
+      { i - 1, pid }
+    end) |> Enum.into(%{})
+
+    processor = %{ processor | pids: pids }
+
+    alias Tempest.Router.{Random, Shuffle, Group}
+
+    router = case router_options do
+      nil ->
+        %Random{ count: processor.concurrency, pids: processor.pids }
+      :random ->
+        %Random{ count: processor.concurrency, pids: processor.pids }
+      :shuffle ->
+        Shuffle.new(count: processor.concurrency, pids: processor.pids)
+      :group ->
+        Group.new(count: processor.concurrency, pids: processor.pids)
+      { :group, type, arg } ->
+        Group.new(count: processor.concurrency, pids: processor.pids, type: type, arg: arg)
+    end
+
+    processor = %{ processor | router: router }
+
     Map.update! topology, :processors, fn map ->
-      Map.put map, module, %{ concurrency: concurrency, pids: [] }
+      Map.put(map, name, processor)
     end
   end
 
-  def add_link(topology, src_module, dst_module, type \\ :shuffle, options \\ []) do
-    Map.update! topology, :links, fn list ->
-      link = { src_module, dst_module, type, options }
-      [ link | list ]
-    end
+  def add_link(topology, src, dst) do
+    Map.update! topology, :links, &( [{src, dst} | &1] )
   end
 
-  def get_concurrency(topology, module) do
-    topology.processors[module].concurrency
-  end
-
-  def get_outgoing_links(topology, module) do
-    Enum.reduce topology.links, [], fn link, memo ->
-      { src_module, dst_module, _, _ } = link
-      if src_module == module do
-        [ link | memo ]
+  def incoming_links(topology, name) do
+    Enum.reduce topology.links, [], fn {src, dst}, memo ->
+      if dst == name do
+        [ src | memo ]
       else
         memo
       end
     end
   end
 
-  def get_incoming_links(topology, module) do
-    Enum.reduce topology.links, [], fn link, memo ->
-      { src_module, dst_module, _, _ } = link
-      if dst_module == module do
-        [ link | memo ]
+  def outgoing_links(topology, name) do
+    Enum.reduce topology.links, [], fn {src, dst}, memo ->
+      if src == name do
+        [ dst | memo ]
       else
         memo
       end
     end
-  end
-
-  def get_outgoing_modules(topology, module) do
-    topology
-    |> get_outgoing_links(module)
-    |> Enum.map(fn { _, mod, _, _ } -> mod end)
-  end
-
-  def get_incoming_modules(topology, module) do
-    topology
-    |> get_incoming_links(module)
-    |> Enum.map(fn { mod, _, _, _ } -> mod end)
-  end
-
-  def get_outgoing_pids(topology, module) do
-    topology
-    |> get_outgoing_modules(module)
-    |> Enum.flat_map( &(topology.processors[&1].pids) )
-  end
-
-  def get_incoming_pids(topology, module) do
-    topology
-    |> get_incoming_modules(module)
-    |> Enum.flat_map( &(topology.processors[&1].pids) )
   end
 
   def start(topology) do
-    processors = Enum.reduce topology.processors, %{}, fn { module, settings }, memo ->
-      pids = Enum.map 1..settings.concurrency, fn _ ->
-        { :ok, pid } = GenServer.start_link(module, %{})
-        pid
-      end
-      Map.put(memo, module, Map.put(settings, :pids, pids))
-    end
-
-    topology = Map.put(topology, :processors, processors)
-
-    Enum.each processors, fn { module, settings } ->
-      Enum.each settings.pids, fn pid ->
-        GenServer.call(pid, { :set_topo, topology })
+    Enum.each topology.processors, fn { _, processor } ->
+      Enum.each processor.pids, fn { _, pid } ->
+        GenServer.call(pid, { :start, topology })
       end
     end
 
     topology
   end
 
-  def emit(topology, module, message) do
-    %{ pids: pids, concurrency: concurrency } = topology.processors[module]
-    n = :rand.uniform(concurrency) - 1
-    pid = Enum.at(pids, n)
-    GenServer.cast(pid, { :ingest, message })
-
+  def emit(topology, name, message) do
+    alias Tempest.Router
+    router = topology.processors[name].router
+    pid = Router.route(router, message)
+    GenServer.cast pid, { :message, message }
     topology
   end
 
-  def finish(topology) do
-
-    # Figure out all processors that do not have incoming links.
-    processors = Enum.filter topology.processors, fn { module, _ } ->
-      get_incoming_links(topology, module) == []
-    end
-
-    # Now iterate over all of them, sending the done message to their pids.
-    Enum.each processors, fn { module, processor } ->
-      Enum.each processor.pids, fn pid ->
-        GenServer.call(pid, :done, :infinity)
+  def stop(topology) do
+    Enum.each topology.processors, fn {name, processor} ->
+      if incoming_links(topology, name) == [] do
+        Enum.each(processor.pids, &( GenServer.call(elem(&1, 1), :done, :infinity) ))
       end
     end
-
-    topology
   end
 
 end
