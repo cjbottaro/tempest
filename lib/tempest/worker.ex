@@ -3,17 +3,11 @@ defmodule Tempest.Worker do
 
   alias Tempest.Topology
 
-  def init(name) do
-    { :ok, %{ name: name } }
-  end
-
   def handle_call :inspect, _from, state do
     { :reply, state, state }
   end
 
-  def handle_call { :start, topology }, _from, state do
-    %{ name: name } = state
-
+  def handle_call { :start, {name, topology} }, _from, state do
     processor = topology.processors[name]
 
     routers = topology
@@ -22,7 +16,8 @@ defmodule Tempest.Worker do
 
     context = %{
       routers: routers,
-      state: processor.initial_state
+      state: processor.initial_state,
+      options: processor
     }
 
     incoming_pids = topology

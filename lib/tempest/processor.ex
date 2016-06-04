@@ -21,6 +21,7 @@ defmodule Tempest.Processor do
         emit: 2,
         option: 1,
         option: 2,
+        get_options: 1,
         initial_state: 1,
         get_state: 1,
         update_state: 2
@@ -75,22 +76,20 @@ defmodule Tempest.Processor do
       |> defstruct
 
       # Just delegate to a normal function Tempest.Processor
-      def new(name, options \\ []) do
-        Tempest.Processor.new(name, __MODULE__, @options, Enum.into(options, %{}))
+      def new(options \\ []) do
+        Tempest.Processor.new(__MODULE__, @options, Enum.into(options, %{}))
       end
 
     end
   end
 
-  def new(name, module, option_specs, options) do
-    validate_name!(name)
+  def new(module, option_specs, options) do
     validate_options!(option_specs, options)
 
     {router, options} = Map.pop(options, :router)
 
     module.__struct__
       |> Map.merge(options)
-      |> Map.put(:name, name)
       |> start_workers
       |> set_router(router)
   end
@@ -101,6 +100,10 @@ defmodule Tempest.Processor do
         pid -> GenServer.cast(pid, { :message, message })
       end
     end
+  end
+
+  def get_options(context) do
+    context.options
   end
 
   def get_state(context) do
@@ -128,7 +131,7 @@ defmodule Tempest.Processor do
 
   defp start_workers(processor) do
     pids = Enum.map(1..processor.concurrency, fn i ->
-      { :ok, pid } = GenServer.start_link(Tempest.Worker, processor.name)
+      { :ok, pid } = GenServer.start_link(Tempest.Worker, nil)
       { i - 1, pid }
     end) |> Map.new
     %{ processor | pids: pids }

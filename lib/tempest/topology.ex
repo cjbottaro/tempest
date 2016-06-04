@@ -5,12 +5,18 @@ defmodule Tempest.Topology do
     %Tempest.Topology{}
   end
 
-  def add_processor(topology, name, module, options \\ []) do
+  def add_processor(topology, name, processor) when is_map(processor) do
     if Map.has_key?(topology.processors, name) do
       raise ArgumentError, "#{inspect name} already defined"
     end
-    processors = Map.put topology.processors, name, module.new(name, options)
+    processor = %{ processor | name: name }
+    processors = Map.put topology.processors, name, processor
     %{ topology | processors: processors }
+  end
+
+  def add_processor(topology, name, module, options \\ []) when is_atom(module) do
+    processor = module.new(options)
+    add_processor(topology, name, processor)
   end
 
   def add_link(topology, src, dst) do
@@ -38,9 +44,9 @@ defmodule Tempest.Topology do
   end
 
   def start(topology) do
-    Enum.each topology.processors, fn { _, processor } ->
-      Enum.each processor.pids, fn { _, pid } ->
-        GenServer.call(pid, { :start, topology })
+    Enum.each topology.processors, fn {name, processor} ->
+      Enum.each processor.pids, fn {_, pid} ->
+        GenServer.call(pid, { :start, {name, topology} })
       end
     end
 
