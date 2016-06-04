@@ -1,40 +1,16 @@
 defmodule Tempest.Topology do
   defstruct [processors: %{}, links: []]
 
-  alias Tempest.Processor
-
   def new do
     %Tempest.Topology{}
   end
 
   def add_processor(topology, name, module, options \\ []) do
-    options = Map.new(options)
-    { router_options, options } = Map.pop options, :routing
-
-    cond do
-      !is_binary(name) && !is_atom(name) ->
-        raise ArgumentError, "#{inspect name} must be a string or atom"
-      Map.has_key?(topology.processors, name) ->
-        raise ArgumentError, "#{inspect name} already defined"
-      true ->
-        nil
+    if Map.has_key?(topology.processors, name) do
+      raise ArgumentError, "#{inspect name} already defined"
     end
-
-    processor = module.new(name, options)
-
-    pids = Enum.map(1..processor.concurrency, fn i ->
-      { :ok, pid } = GenServer.start_link(Tempest.Worker, name)
-      { i - 1, pid }
-    end) |> Enum.into(%{})
-
-    processor = %{ processor | pids: pids }
-
-    router = Tempest.Router.new(router_options, processor.pids)
-    processor = %{ processor | router: router }
-
-    Map.update! topology, :processors, fn map ->
-      Map.put(map, name, processor)
-    end
+    processors = Map.put topology.processors, name, module.new(name, options)
+    %{ topology | processors: processors }
   end
 
   def add_link(topology, src, dst) do

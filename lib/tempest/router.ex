@@ -3,38 +3,84 @@ defmodule Tempest.Router do
 
   defmacro __using__(_) do
     quote do
-      defstruct [:pids, :count]
+      Module.register_attribute __MODULE__, :fields, accumulate: true
 
-      def new(pids, keys \\ []) do
-        keys = keys
-          |> Enum.into(%{})
-          |> Map.merge( %{pids: pids, count: Map.size(pids)} )
+      import Router, only: [field: 1, field: 2]
 
-        Map.merge %__MODULE__{}, keys
+      field :pids
+      field :count
+
+      def after_init(router) do
+        router
       end
 
-      defoverridable [new: 1, new: 2]
+      defoverridable [after_init: 1]
+
+      @before_compile Router
     end
   end
 
-  def new(nil, pids) do
-    Router.Random.new(pids)
+  defmacro __before_compile__(_env) do
+    quote do
+      defstruct @fields
+
+      def new(attributes \\ []) do
+        Router.new(__MODULE__, attributes)
+      end
+    end
   end
 
-  def new(:random, pids) do
-    Router.Random.new(pids)
+  defmacro field(name, default \\ nil) do
+    validate_name!(name)
+    quote bind_quoted: [name: name, default: default] do
+      @fields { name, default }
+    end
   end
 
-  def new(:shuffle, pids) do
-    Router.Shuffle.new(pids)
+  defp validate_name!(name) do
+    if !is_atom(name) do
+      raise ArgumentError, "field names must be atoms, got: #{inspect name}"
+    end
   end
 
-  def new(:group, pids) do
-    Router.Group.new(pids)
+  def new(module, attributes) do
+    attributes = Map.new(attributes)
+    module.__struct__ |> Map.merge(attributes) |> module.after_init
   end
 
-  def new({:group, type, arg}, pids) do
-    Router.Group.new(pids, type: type, arg: arg)
+  def set_pids(router, pids) when is_map(pids) do
+    %{ router | pids: pids, count: Map.size(pids) }
+  end
+
+  def set_pids(router, pids) when is_list(pids) do
+    pids = Enum.with_index(pids)
+      |> Enum.map(fn {pid, i} -> {i, pid} end)
+      |> Map.new
+    set_pids(router, pids)
+  end
+
+  def from_options %{ __struct__: _ } = router do
+    router
+  end
+
+  def from_options(nil) do
+    Router.Random.new
+  end
+
+  def from_options(:random) do
+    Router.Random.new
+  end
+
+  def from_options(:shuffle) do
+    Router.Shuffle.new
+  end
+
+  def from_options(:group) do
+    Router.Group.new
+  end
+
+  def from_options {:group, options} do
+    Router.Group.new(options)
   end
 
   def route(router, message) do

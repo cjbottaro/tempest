@@ -1,14 +1,22 @@
 defmodule Tempest.Router.Group do
-  defstruct [:pids, :count, :type, :arg]
-
   use Tempest.Router
 
-  def route(router, message) do
-    n = case router.type do
-      :identity ->
-        :binary.decode_unsigned(message)
+  field :fn
+
+  def route %{ pids: pids, count: count, fn: f }, message do
+    routing_key = if f do
+      f.(message)
+    else
+      message
     end
 
-    router.pids[ rem(n, router.count) ]
+    n = cond do
+      is_integer(routing_key) ->
+        routing_key
+      is_binary(routing_key) ->
+        :binary.decode_unsigned(routing_key)
+    end
+
+    pids[ rem(n, count) ]
   end
 end

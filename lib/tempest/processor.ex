@@ -26,7 +26,8 @@ defmodule Tempest.Processor do
         update_state: 2
       ]
 
-      option :concurrency,    required: true,  default: 1
+      option :concurrency, required: true,  default: 1
+      option :router,      required: true,  default: :random
     end
   end
 
@@ -48,7 +49,7 @@ defmodule Tempest.Processor do
   @valid_option_options ~w(required default)
 
   defp check_option_options!(options) do
-    Enum.each options, fn {k, v} ->
+    Enum.each options, fn {k, _} ->
       if Enum.member?(@valid_option_options, k) do
         raise ArgumentError, "#{inspect k} is not a valid option"
       end
@@ -81,28 +82,17 @@ defmodule Tempest.Processor do
     end
   end
 
-  def new(name, module, option_specs, option_values) do
-    alias Tempest.Router
+  def new(name, module, option_specs, options) do
+    validate_name!(name)
+    validate_options!(option_specs, options)
 
-    if !is_binary(name) && !is_atom(name) do
-      raise ArgumentError, "name must be string or atom, got: #{inspect name}"
-    end
+    {router, options} = Map.pop(options, :router)
 
-    router_options = option_values[:routing]
-    option_values = Map.delete(option_values, :routing)
-
-    processor = module.__struct__
-      |> Map.merge(option_values)
+    module.__struct__
+      |> Map.merge(options)
       |> Map.put(:name, name)
-
-    pids = Enum.map(1..processor.concurrency, fn i ->
-      { :ok, pid } = GenServer.start_link(Tempest.Worker, name)
-      { i - 1, pid }
-    end) |> Enum.into(%{})
-
-    router = Router.new(router_options, pids)
-
-    Map.merge processor, %{ pids: pids, router: router }
+      |> start_workers
+      |> set_router(router)
   end
 
   def emit(context, message) do
@@ -119,6 +109,39 @@ defmodule Tempest.Processor do
 
   def update_state(context, f) do
     { :update_state, f.(context.state) }
+  end
+
+  defp validate_name!(name) do
+    if !is_binary(name) && !is_atom(name) do
+      raise ArgumentError, "name must be string or atom, got: #{inspect name}"
+    end
+  end
+
+  defp validate_options!(specs, options) do
+    valid_options = specs |> Map.new |> Map.keys
+    Enum.each options, fn {k, _} ->
+      if !Enum.member?(valid_options, k) do
+        raise ArgumentError, "#{inspect k} is not a valid option"
+      end
+    end
+  end
+
+  defp start_workers(processor) do
+    pids = Enum.map(1..processor.concurrency, fn i ->
+      { :ok, pid } = GenServer.start_link(Tempest.Worker, processor.name)
+      { i - 1, pid }
+    end) |> Map.new
+    %{ processor | pids: pids }
+  end
+
+  defp set_router(processor, router) do
+    alias Tempest.Router
+
+    router = router
+      |> Router.from_options
+      |> Router.set_pids(processor.pids)
+
+    %{ processor | router: router }
   end
 
 end

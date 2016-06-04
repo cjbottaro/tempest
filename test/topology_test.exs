@@ -65,7 +65,7 @@ defmodule TopologyTest do
   end
 
   test "processor with shuffle routing" do
-    topology = new |> add_processor(:foo, NullProcessor, concurrency: 2, routing: :shuffle)
+    topology = new |> add_processor(:foo, NullProcessor, concurrency: 2, router: :shuffle)
     processor = topology.processors[:foo]
     router = processor.router
 
@@ -75,15 +75,14 @@ defmodule TopologyTest do
   end
 
   test "processor with group routing" do
-    topology = new |> add_processor(:foo, NullProcessor, concurrency: 2, routing: {:group, :func, &(&1.blah)})
+    topology = new |> add_processor(:foo, NullProcessor, concurrency: 2, router: {:group, fn: &(&1.blah)})
     processor = topology.processors[:foo]
     router = processor.router
 
     assert %Tempest.Router.Group{} = router
     assert router.count == 2
     assert router.pids == processor.pids
-    assert router.type == :func
-    assert is_function(router.arg)
+    assert is_function(router.fn)
   end
 
 end

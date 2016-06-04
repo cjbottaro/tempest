@@ -6,7 +6,7 @@ alias WordCount.{FileReader, LineProcessor, WordCounter, Summary}
 topology = Topology.new
   |> Topology.add_processor(:reader, FileReader)
   |> Topology.add_processor(:lines, LineProcessor, concurrency: 4)
-  |> Topology.add_processor(:counter, WordCounter, concurrency: 4, routing: :group)
+  |> Topology.add_processor(:counter, WordCounter, concurrency: 4, router: :group)
   |> Topology.add_processor(:summary, Summary)
 
   |> Topology.add_link(:reader, :lines)

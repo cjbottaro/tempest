@@ -15,9 +15,7 @@ end
 defmodule Counter do
   use Tempest.Processor
 
-  def initial_state do
-    0
-  end
+  initial_state 0
 
   def process(context, _message) do
     update_state context, fn state ->
@@ -34,9 +32,7 @@ end
 defmodule Summer do
   use Tempest.Processor
 
-  def initial_state do
-    0
-  end
+  initial_state 0
 
   def process(context, count) do
     update_state context, fn state ->
@@ -56,7 +52,7 @@ end
 # input --> repeater --> counter ---/
 # input --> repeater --> counter --/
 topology = Topology.new
-  |> Topology.add_processor(:input, RangeEmitter, concurrency: 4, routing: :shuffle)
+  |> Topology.add_processor(:input, RangeEmitter, concurrency: 4, router: :shuffle)
   |> Topology.add_processor(:repeater, Identity, concurrency: 4)
   |> Topology.add_processor(:counter, Counter, concurrency: 4)
   |> Topology.add_processor(:summer, Summer)
