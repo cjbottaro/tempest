@@ -1,50 +1,4 @@
 alias Tempest.Topology
-alias Tempest.Processor.Identity
-
-defmodule RangeEmitter do
-  use Tempest.Processor
-
-  def process(context, {lower, upper}) do
-    Enum.each lower..upper, fn i ->
-      emit(context, i)
-    end
-  end
-
-end
-
-defmodule Counter do
-  use Tempest.Processor
-
-  initial_state 0
-
-  def process(context, _message) do
-    update_state context, fn state ->
-      state + 1
-    end
-  end
-
-  def done(context) do
-    emit(context, get_state(context))
-  end
-
-end
-
-defmodule Summer do
-  use Tempest.Processor
-
-  initial_state 0
-
-  def process(context, count) do
-    update_state context, fn state ->
-      state + count
-    end
-  end
-
-  def done(context) do
-    IO.puts get_state(context)
-  end
-
-end
 
 # input --> repeater --> counter --\
 # input --> repeater --> counter ---\
@@ -53,7 +7,7 @@ end
 # input --> repeater --> counter --/
 topology = Topology.new
   |> Topology.add_processor(:input, RangeEmitter, concurrency: 4, router: :shuffle)
-  |> Topology.add_processor(:repeater, Identity, concurrency: 4)
+  |> Topology.add_processor(:repeater, Tempest.Processor.Identity, concurrency: 4)
   |> Topology.add_processor(:counter, Counter, concurrency: 4)
   |> Topology.add_processor(:summer, Summer)
 
