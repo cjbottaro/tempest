@@ -72,7 +72,6 @@ defmodule TopologyTest do
     assert %Tempest.Router.Shuffle{} = router
     assert router.count == 2
     assert router.pids == processor.pids
-    assert router.index == 0
   end
 
   test "processor with group routing" do

@@ -8,9 +8,8 @@ defmodule Tempest.Topology do
   end
 
   def add_processor(topology, name, module, options \\ []) do
-    options = Enum.into(options, %{})
-    router_options = Map.get(options, :routing)
-    options = Map.delete(options, :routing)
+    options = Map.new(options)
+    { router_options, options } = Map.pop options, :routing
 
     cond do
       !is_binary(name) && !is_atom(name) ->
@@ -21,8 +20,7 @@ defmodule Tempest.Topology do
         nil
     end
 
-    attributes = Map.merge(options, %{ name: name, module: module })
-    processor = Processor.new(attributes)
+    processor = module.new(name, options)
 
     pids = Enum.map(1..processor.concurrency, fn i ->
       { :ok, pid } = GenServer.start_link(Tempest.Worker, name)
@@ -31,21 +29,7 @@ defmodule Tempest.Topology do
 
     processor = %{ processor | pids: pids }
 
-    alias Tempest.Router.{Random, Shuffle, Group}
-
-    router = case router_options do
-      nil ->
-        %Random{ count: processor.concurrency, pids: processor.pids }
-      :random ->
-        %Random{ count: processor.concurrency, pids: processor.pids }
-      :shuffle ->
-        Shuffle.new(count: processor.concurrency, pids: processor.pids)
-      :group ->
-        Group.new(count: processor.concurrency, pids: processor.pids)
-      { :group, type, arg } ->
-        Group.new(count: processor.concurrency, pids: processor.pids, type: type, arg: arg)
-    end
-
+    router = Tempest.Router.new(router_options, processor.pids)
     processor = %{ processor | router: router }
 
     Map.update! topology, :processors, fn map ->

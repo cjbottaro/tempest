@@ -1,16 +1,17 @@
 # This is literally an order of magnitude slower than Router.Random,
 # due to the use of an Agent. It's done that way to make the API pretty.
 defmodule Tempest.Router.Shuffle do
-  defstruct [pids: nil, count: nil, index_pid: nil]
 
-  def new(attributes \\ []) do
+  # This will take precedence over the defstruct call from `use Tempest.Router`.
+  # It's needed because if you add "extra" keys to a struct, then `inspect`
+  # won't display them as structs anymore.
+  defstruct [:pids, :count, :index_pid]
+
+  use Tempest.Router
+
+  def new(pids) do
     { :ok, pid } = Agent.start_link(fn -> 0 end)
-
-    attributes = attributes
-      |> Enum.into(%{})
-      |> Map.put(:index_pid, pid)
-
-    Map.merge(%__MODULE__{}, attributes)
+    Map.put super(pids), :index_pid, pid
   end
 
   def route(router, _) do

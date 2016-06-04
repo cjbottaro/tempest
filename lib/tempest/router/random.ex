@@ -1,14 +1,12 @@
 defmodule Tempest.Router.Random do
-  defstruct [:pids, :count]
+  use Tempest.Router
 
-  def route(router, _) do
-    # This optimization helps significantly...
-    # I guess generating random numbers is expensive.
-    if router.count == 1 do
-      router.pids[0]
-    else
-      n = :random.uniform(router.count) - 1
-      router.pids[n]
-    end
+  # This optimization helps significantly.
+  def route %{ count: 1, pids: pids } do
+    pids[0]
+  end
+
+  def route %{ count: count, pids: pids } do
+    pids[ :random.uniform(count) - 1 ]
   end
 end

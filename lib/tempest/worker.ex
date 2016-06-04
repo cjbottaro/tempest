@@ -42,7 +42,7 @@ defmodule Tempest.Worker do
 
     state = %{
       name: name,
-      module: processor.module,
+      module: processor.__struct__,
       incoming_pids: incoming_pids,
       outgoing_pids: outgoing_pids,
       received_done_from: MapSet.new,
