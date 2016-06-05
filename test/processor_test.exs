@@ -5,8 +5,7 @@ defmodule ProcessorTest do
   alias Tempest.{Processor, Router}
 
   test "building a simple processor" do
-    processor = Processor.Null.new(:foo)
-    assert processor.name == :foo
+    processor = Processor.Null.new
     assert processor.concurrency == 1
     assert %Router.Random{} = processor.router
   end
@@ -14,17 +13,18 @@ defmodule ProcessorTest do
   test "building a processor with invalid options" do
 
     assert_raise ArgumentError, ~r/:blah/, fn ->
-      Processor.Null.new(:foo, blah: :test)
+      Processor.Null.new(blah: :test)
     end
 
     assert_raise ArgumentError, ~r/:pids/, fn ->
-      Processor.Null.new(:foo, pids: %{})
+      Processor.Null.new(pids: %{})
     end
 
   end
 
   test "building a processor with a complex router" do
-    processor = Processor.Null.new :foo, router: { :group, fn: &(&1.bar) }
+    processor = Processor.Null.new router: { :group, fn: &(&1.bar) }
+    assert is_function(processor.router.fn)
   end
 
 

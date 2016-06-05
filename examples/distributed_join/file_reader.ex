@@ -1,6 +1,10 @@
 defmodule DistributedJoin.FileReader do
   use Tempest.Processor
 
+  # def process(context, records) do
+  #   Enum.each records, &emit(context, &1)
+  # end
+
   def process(context, file_name) do
     File.open! file_name, [:read], fn f ->
       IO.stream(f, :line)

@@ -1,4 +1,4 @@
-alias Tempest.Topology
+alias Tempest.{Topology, Stats}
 alias WordCount.{FileReader, LineProcessor, WordCounter, Summary}
 
 [ file_name | _ ] = System.argv
@@ -14,13 +14,8 @@ topology = Topology.new
   |> Topology.add_link(:counter, :summary)
 
   |> Topology.start
-
-start_time = :os.system_time(:milli_seconds)
-
-topology
   |> Topology.emit(:reader, file_name)
   |> Topology.stop
 
-elapse_time = (:os.system_time(:milli_seconds) - start_time) / 1000.0
-
-IO.puts "\nRuntime: #{elapse_time}"
+  |> Stats.get
+  |> Stats.pretty_print

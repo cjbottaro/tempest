@@ -67,6 +67,7 @@ defmodule Tempest.Topology do
         Enum.each(processor.pids, &( GenServer.call(elem(&1, 1), :done, :infinity) ))
       end
     end
+    topology
   end
 
 end

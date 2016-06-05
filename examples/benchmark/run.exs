@@ -1,4 +1,4 @@
-alias Tempest.Topology
+alias Tempest.{Topology, Stats}
 
 # input --> repeater --> counter --\
 # input --> repeater --> counter ---\
@@ -16,15 +16,11 @@ topology = Topology.new
   |> Topology.add_link(:counter, :summer)
   |> Topology.start
 
-start_time = :os.system_time(:milli_seconds)
-
-topology
   |> Topology.emit(:input, {1, 1_000_000})
   |> Topology.emit(:input, {1, 1_000_000})
   |> Topology.emit(:input, {1, 1_000_000})
   |> Topology.emit(:input, {1, 1_000_000})
   |> Topology.stop
 
-end_time = :os.system_time(:milli_seconds)
-
-IO.puts (end_time - start_time) / 1000.0
+  |> Stats.get
+  |> Stats.pretty_print

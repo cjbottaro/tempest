@@ -23,7 +23,6 @@ defmodule Tempest.Processor.EquiJoin do
       if right_messages do
         Enum.each left_messages, fn left_message ->
           Enum.each right_messages, fn right_message ->
-            IO.inspect {left_message, right_message}
             emit context, {left_message, right_message}
           end
         end
