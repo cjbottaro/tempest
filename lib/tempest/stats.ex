@@ -10,6 +10,7 @@ defmodule Tempest.Stats do
           elapse_time: elapse_time(stats),
           code_time: code_time(stats),
           wait_time: wait_time(stats),
+          done_time: done_time(stats),
           code_throughput: code_throughput(stats),
           real_throughput: real_throughput(stats),
         }
@@ -29,6 +30,7 @@ defmodule Tempest.Stats do
         IO.puts "    elapse_time     : #{stats.elapse_time}"
         IO.puts "    code_time       : #{stats.code_time}"
         IO.puts "    wait_time       : #{stats.wait_time}"
+        IO.puts "    done_time       : #{stats.done_time}"
         IO.puts "    code_throughput : #{stats.code_throughput}"
         IO.puts "    real_throughput : #{stats.real_throughput}"
       end
@@ -51,6 +53,10 @@ defmodule Tempest.Stats do
 
   defp wait_time(stats) do
     stats.wait_time / 1000
+  end
+
+  defp done_time(stats) do
+    stats.done_time / 1000
   end
 
   defp code_throughput(stats) do
