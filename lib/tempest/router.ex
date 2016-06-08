@@ -48,39 +48,12 @@ defmodule Tempest.Router do
     module.__struct__ |> Map.merge(attributes) |> module.after_init
   end
 
-  def set_pids(router, pids) when is_map(pids) do
-    %{ router | pids: pids, count: Map.size(pids) }
-  end
-
   def set_pids(router, pids) when is_list(pids) do
-    pids = Enum.with_index(pids)
+    pids = pids
+      |> Enum.with_index
       |> Enum.map(fn {pid, i} -> {i, pid} end)
       |> Map.new
-    set_pids(router, pids)
-  end
-
-  def from_options %{ __struct__: _ } = router do
-    router
-  end
-
-  def from_options(nil) do
-    Router.Random.new
-  end
-
-  def from_options(:random) do
-    Router.Random.new
-  end
-
-  def from_options(:shuffle) do
-    Router.Shuffle.new
-  end
-
-  def from_options(:group) do
-    Router.Group.new
-  end
-
-  def from_options {:group, options} do
-    Router.Group.new(options)
+    %{ router | pids: pids, count: Map.size(pids) }
   end
 
   def route(router, message) do

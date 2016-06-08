@@ -2,30 +2,46 @@ defmodule ProcessorTest do
   use ExUnit.Case
   doctest Tempest
 
-  alias Tempest.{Processor, Router}
+  alias Tempest.Processor
 
   test "building a simple processor" do
     processor = Processor.Null.new
-    assert processor.concurrency == 1
-    assert %Router.Random{} = processor.router
+    assert Processor.get_options(processor) == %{}
   end
 
   test "building a processor with invalid options" do
 
-    assert_raise ArgumentError, ~r/:blah/, fn ->
+    assert_raise KeyError, ~r/:blah/, fn ->
       Processor.Null.new(blah: :test)
     end
 
-    assert_raise ArgumentError, ~r/:pids/, fn ->
+    assert_raise KeyError, ~r/:pids/, fn ->
       Processor.Null.new(pids: %{})
+    end
+
+    assert_raise KeyError, ~r/:concurrency/, fn ->
+      Processor.Null.new(concurrency: 2)
     end
 
   end
 
-  test "building a processor with a complex router" do
-    processor = Processor.Null.new router: { :group, fn: &(&1.bar) }
-    assert is_function(processor.router.fn)
+  test "building a processor with options" do
+    processor = Processor.EquiJoin.new join_fn: &(&1)
+    assert %{ join_fn: join_fn, output_fn: output_fn} = processor
+    assert is_function(join_fn)
+    assert is_nil(output_fn)
   end
 
+  defmodule ProcessorWithRequiredOptions do
+    use Processor
+    option :foo, required: true
+    option :bar, required: false
+  end
+
+  test "required options are required" do
+    assert_raise ArgumentError, ~r/:foo/, fn ->
+      ProcessorWithRequiredOptions.new
+    end
+  end
 
 end

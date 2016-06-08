@@ -1,39 +1,44 @@
 defmodule Tempest.Processor.EquiJoin do
   use Tempest.Processor
 
-  initial_state %{ left_groups: %{}, right_groups: %{} }
+  initial_state %{ left: %{}, right: %{} }
 
-  option :joining_fn, required: true
+  option :join_fn, required: true
   option :output_fn,  required: false
 
   def process(context, message) do
-    %{ joining_fn: joining_fn } = get_options(context)
+    %{ join_fn: join_fn } = get_options(context)
 
-    case joining_fn.(message) do
-      { :left,  value } -> group(context, :left_groups,  value, message)
-      { :right, value } -> group(context, :right_groups, value, message)
-      nil -> raise ArgumentError, "cannot determine join key for #{inspect message}"
+    case join_fn.(message) do
+      { :left,  value } -> group(context, :left,  value, message)
+      { :right, value } -> group(context, :right, value, message)
     end
   end
 
   def done(context) do
-    %{ left_groups: left_groups, right_groups: right_groups } = get_state(context)
-    Enum.each left_groups, fn { key, left_messages } ->
-      right_messages = right_groups[key]
-      if right_messages do
-        Enum.each left_messages, fn left_message ->
-          Enum.each right_messages, fn right_message ->
-            emit context, {left_message, right_message}
+    %{ left: left, right: right } = get_state(context)
+    %{ output_fn: output_fn } = get_options(context)
+
+    Enum.each left, fn { key, left_records } ->
+      right_records = right[key]
+      if right_records do
+        Enum.each left_records, fn left_record ->
+          Enum.each right_records, fn right_record ->
+            if output_fn do
+              emit context, output_fn.(left_record, right_record)
+            else
+              emit context, { left_record, right_record }
+            end
           end
         end
       end
     end
   end
 
-  defp group(context, group_name, value, message) do
+  defp group(context, side, key, record) do
     update_state context, fn state ->
-      group = Map.update state[group_name], value, [message], &([ message | &1])
-      %{ state | group_name => group }
+      group = Map.update state[side], key, [record], &([record | &1])
+      %{ state | side => group }
     end
   end
 

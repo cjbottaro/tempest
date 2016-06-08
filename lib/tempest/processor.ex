@@ -3,148 +3,55 @@ defmodule Tempest.Processor do
   defmacro __using__(_) do
     quote do
 
-      # No initial state by default.
       @initial_state nil
-
-      # Have to register options this way so it accumulates.
+      @before_compile Tempest.Processor
       Module.register_attribute __MODULE__, :options, accumulate: true
 
-      # So we can do stuff with the attributes.
-      @before_compile Tempest.Processor
+      import Tempest.Processor.Dsl
 
-      def done(context) do
+      def done(_context) do
       end
 
       defoverridable [done: 1]
 
-      import Tempest.Processor, only: [
-        emit: 2,
-        option: 1,
-        option: 2,
-        get_options: 1,
-        initial_state: 1,
-        get_state: 1,
-        update_state: 2
-      ]
-
-      option :concurrency, required: true,  default: 1
-      option :router,      required: true,  default: :random
     end
   end
 
-  defmacro option(name, options \\ []) do
-    check_option_name!(name)
-    check_option_options!(options)
+  defmacro __before_compile__(_) do
+    quote do
 
-    quote bind_quoted: [name: name, options: options] do
-      @options { name, options }
-    end
-  end
-
-  defp check_option_name!(name) do
-    if !is_atom(name) do
-      raise ArgumentError, "option name must be atom, got #{inspect name}"
-    end
-  end
-
-  @valid_option_options ~w(required default)
-
-  defp check_option_options!(options) do
-    Enum.each options, fn {k, _} ->
-      if Enum.member?(@valid_option_options, k) do
-        raise ArgumentError, "#{inspect k} is not a valid option"
+      # This overwrites the initial_state/1 that was imported from
+      # Processor.Dsl but that's fine because we're done with it at this point.
+      def initial_state do
+        @initial_state
       end
-    end
-  end
 
-  defmacro initial_state(state) do
-    quote do
-      @initial_state unquote(state)
-    end
-  end
+      def option_specs do
+        @options
+      end
 
-  defmacro __before_compile__(_env) do
-    quote do
+      defstruct Enum.map(@options, fn {name, opts} -> { name, opts[:default] } end)
 
-      [
-        name: nil,
-        initial_state: @initial_state,
-        pids: nil,
-        router: nil
-      ]
-      ++ Enum.map(@options, fn {name, opts} -> { name, opts[:default] } end)
-      |> defstruct
-
-      # Just delegate to a normal function Tempest.Processor
       def new(options \\ []) do
-        Tempest.Processor.new(__MODULE__, @options, Enum.into(options, %{}))
+        Tempest.Processor.new(__MODULE__, options)
       end
 
     end
   end
 
-  def new(module, option_specs, options) do
-    validate_options!(option_specs, options)
-
-    {router, options} = Map.pop(options, :router)
-
-    module.__struct__
-      |> Map.merge(options)
-      |> start_workers
-      |> set_router(router)
+  def get_options(processor) do
+    option_names = Keyword.keys(processor.__struct__.option_specs)
+    Map.take(processor, option_names)
   end
 
-  def emit(context, message) do
-    Enum.each context.routers, fn router ->
-      case router.__struct__.route(router, message) do
-        pid -> GenServer.cast(pid, { :message, message })
+  def new(module, options) do
+    struct = struct!(module, options)
+    Enum.each module.option_specs, fn {name, spec} ->
+      if spec[:required] && is_nil( Map.get(struct, name) ) do
+        raise ArgumentError, "option #{inspect name} is required"
       end
     end
-  end
-
-  def get_options(context) do
-    context.options
-  end
-
-  def get_state(context) do
-    context.state
-  end
-
-  def update_state(context, f) do
-    { :update_state, f.(context.state) }
-  end
-
-  defp validate_name!(name) do
-    if !is_binary(name) && !is_atom(name) do
-      raise ArgumentError, "name must be string or atom, got: #{inspect name}"
-    end
-  end
-
-  defp validate_options!(specs, options) do
-    valid_options = specs |> Map.new |> Map.keys
-    Enum.each options, fn {k, _} ->
-      if !Enum.member?(valid_options, k) do
-        raise ArgumentError, "#{inspect k} is not a valid option"
-      end
-    end
-  end
-
-  defp start_workers(processor) do
-    pids = Enum.map(1..processor.concurrency, fn i ->
-      { :ok, pid } = GenServer.start_link(Tempest.Worker, nil)
-      { i - 1, pid }
-    end) |> Map.new
-    %{ processor | pids: pids }
-  end
-
-  defp set_router(processor, router) do
-    alias Tempest.Router
-
-    router = router
-      |> Router.from_options
-      |> Router.set_pids(processor.pids)
-
-    %{ processor | router: router }
+    struct
   end
 
 end

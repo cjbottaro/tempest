@@ -1,76 +1,42 @@
 defmodule Tempest.Stats do
-  import Float, only: [round: 2]
+  import ExPrintf, only: [printf: 2]
+  import Tempest.Worker.Stats
 
   def get(topology) do
-    Enum.reduce topology.processors, %{}, fn {name, processor}, memo ->
-      stats = Enum.reduce processor.pids, %{}, fn {_, pid}, memo ->
-        stats = GenServer.call(pid, :stats)
-        calculated_stats = %{
-          messages: messages(stats),
-          elapse_time: elapse_time(stats),
-          code_time: code_time(stats),
-          wait_time: wait_time(stats),
-          done_time: done_time(stats),
-          code_throughput: code_throughput(stats),
-          real_throughput: real_throughput(stats),
-        }
-        Map.put(memo, pid, calculated_stats)
-      end
-      Map.put(memo, name, %{module: processor.__struct__, pid_stats: stats})
+    Enum.map topology.components, fn {name, component} ->
+      {name, component.processor, calc_component_stats(component)}
     end
   end
 
   def pretty_print(stats) do
-    Enum.each stats, fn { name, stats } ->
-      %{ module: module, pid_stats: pid_stats } = stats
-      IO.puts "#{name}: #{module}"
+    Enum.each stats, fn {name, processor, pid_stats} ->
+      IO.puts "#{name} (#{display_processor processor})"
       Enum.each pid_stats, fn {pid, stats} ->
         IO.puts "  #{inspect pid}"
-        IO.puts "    messages        : #{stats.messages}"
-        IO.puts "    elapse_time     : #{stats.elapse_time}"
-        IO.puts "    code_time       : #{stats.code_time}"
-        IO.puts "    wait_time       : #{stats.wait_time}"
-        IO.puts "    done_time       : #{stats.done_time}"
-        IO.puts "    code_throughput : #{stats.code_throughput}"
-        IO.puts "    real_throughput : #{stats.real_throughput}"
+        printf("    message count     : %d\n", [message_count(stats)])
+        printf("    real time         : %.5f\n", [real_time(stats)/1_000_000])
+        printf("    code time         : %.5f\n", [code_time(stats)/1_000_000])
+        printf("    wait time         : %.5f\n", [wait_time(stats)/1_000_000])
+        printf("    wait time (first) : %.5f\n", [wait_time_first(stats)/1_000_000])
+        printf("    done time         : %.5f\n", [done_time(stats)/1_000_000])
+        printf("    real throughput   : %.5f\n", [real_throughput(stats)])
+        printf("    code throughput   : %.5f\n", [code_throughput(stats)])
       end
     end
   end
 
-  defp messages(stats) do
-    stats.count
-  end
-
-  defp elapse_time(stats) do
-    (stats.done_at - stats.start_at) / 1000
-      |> round(2)
-  end
-
-  defp code_time(stats) do
-    stats.time / 1000
-      |> round(2)
-  end
-
-  defp wait_time(stats) do
-    stats.wait_time / 1000
-  end
-
-  defp done_time(stats) do
-    stats.done_time / 1000
-  end
-
-  defp code_throughput(stats) do
-    code_time = code_time(stats)
-    if code_time == 0 do
-      :infinity
-    else
-      round(stats.count / code_time, 2)
+  defp calc_component_stats(component) do
+    Enum.reduce component.worker_pids, %{}, fn pid, memo ->
+      Map.put memo, pid, GenServer.call(pid, :stats)
     end
   end
 
-  defp real_throughput(stats) do
-    stats.count / elapse_time(stats)
-      |> round(2)
+  defp display_processor(processor) do
+    list = processor.__struct__
+      |> Atom.to_string
+      |> String.split(".")
+    [ _ | rest ] = list
+    Enum.join(rest, ".")
   end
 
 end

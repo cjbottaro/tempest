@@ -10,7 +10,7 @@
 #   |> Topology.add_link(Processor.Application, Processor.User)
 #   |> Topology.add_link(Processor.Application, Processor.ApplicationUserJoiner, :group, field: :user_id)
 #   |> Topology.add_link(Processor.User, Processor.ApplicationUserJoiner, :group, field: :id)
-#   |> Topology.start
+#   |> Topology.begin_computation
 #
 # pid = topology.processors[Processor.Application].pids |> Enum.at(0)
 # Tempest.Repo.all(Tempest.Application) |> Enum.each(fn application ->

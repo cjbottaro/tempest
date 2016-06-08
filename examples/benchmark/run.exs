@@ -14,7 +14,7 @@ topology = Topology.new
   |> Topology.add_link(:input, :repeater)
   |> Topology.add_link(:repeater, :counter)
   |> Topology.add_link(:counter, :summer)
-  |> Topology.start
+  |> Topology.begin_computation
 
   |> Topology.emit(:input, {1, 1_000_000})
   |> Topology.emit(:input, {1, 1_000_000})

@@ -1,148 +1,136 @@
 defmodule Tempest.Worker do
   use GenServer
 
-  alias Tempest.Topology
+  defstruct [
+    :processor,
+    :processor_state,
+    :processor_options,
+    :routers,
+    :incoming_pids,
+    :done_incoming_pids,
+    :stats
+  ]
+
+  alias Tempest.{Processor, Worker}
+  alias Worker.Stats
+
+  def init(processor) do
+    worker = %Worker{
+      processor: processor.__struct__,                     # Eww
+      processor_state: processor.__struct__.initial_state, # Eww
+      processor_options: Processor.get_options(processor),
+      done_incoming_pids: MapSet.new,
+      stats: %Stats{}
+    }
+    { :ok, worker }
+  end
 
   def handle_call :inspect, _from, state do
     { :reply, state, state }
   end
 
-  def handle_call { :start, {name, topology} }, _from, state do
-    processor = topology.processors[name]
-
-    routers = topology
-      |> Topology.outgoing_links(name)
-      |> Enum.map( &(topology.processors[&1].router) )
-
-    context = %{
-      routers: routers,
-      state: processor.initial_state,
-      options: processor
-    }
-
-    incoming_pids = topology
-      |> Topology.incoming_links(name)
-      |> Enum.flat_map( &(Map.values(topology.processors[&1].pids)) )
+  def handle_call { :begin_computation, config, _args }, _from, worker do
+    %{ incoming_pids: incoming_pids, routers: routers } = config
+    %{ stats: stats } = worker
 
     incoming_pids = if incoming_pids == [] do
       nil
     else
-      Enum.into(incoming_pids, MapSet.new)
+      MapSet.new(incoming_pids)
     end
 
-    outgoing_pids = topology
-      |> Topology.outgoing_links(name)
-      |> Enum.flat_map( &(Map.values(topology.processors[&1].pids)) )
-      |> Enum.into(MapSet.new)
+    stats = %{ stats | start_at: :os.system_time(:micro_seconds) }
 
-    state = %{
-      name: name,
-      module: processor.__struct__,
+    worker = %{ worker |
       incoming_pids: incoming_pids,
-      outgoing_pids: outgoing_pids,
-      received_done_from: MapSet.new,
-      context: context,
-      stats: %{
-        start_at: :os.system_time(:milli_seconds),
-        time_til_first_message: nil,
-        count: 0,
-        time: 0,
-        done_at: nil,
-        done_time: nil,
-        last_message_at: nil,
-        wait_time: 0
-      }
+      routers: routers,
+      stats: stats
     }
 
-    { :reply, :ok, state }
+    { :reply, :ok, worker }
   end
 
-  def handle_call :done, { from_pid, _ }, state do
+  def handle_call :end_computation, { from_pid, _ }, worker do
     %{
+      processor: processor,
       incoming_pids: incoming_pids,
-      outgoing_pids: outgoing_pids,
-      received_done_from: received_done_from,
-      module: module,
-      context: context
-    } = state
-
-    received_done_from = MapSet.put(received_done_from, from_pid)
-
-    state = if received_done_from == incoming_pids || incoming_pids == nil do
-      t1 = :os.system_time(:milli_seconds)
-      module.done(context)
-      t2 = :os.system_time(:milli_seconds)
-      Enum.each outgoing_pids, &( GenServer.call(&1, :done, :infinity) )
-
-      stats = %{ state.stats | done_at: t1, done_time: t2 - t1 }
-      %{ state | stats: stats }
-    else
-      state
-    end
-
-    { :reply, :ok, %{ state | received_done_from: received_done_from } }
-  end
-
-  def handle_call :stats, _from, state do
-    { :reply, state.stats, state }
-  end
-
-  def handle_cast { :message, message }, state do
-    %{
-      module: module,
-      context: context,
+      done_incoming_pids: done_incoming_pids,
+      routers: routers,
       stats: stats
-    } = state
+    } = worker
 
-    stats = if stats.last_message_at do
-      wait_time = :os.system_time(:milli_seconds) - stats.last_message_at
-      %{ stats | wait_time: stats.wait_time + wait_time }
+    done_incoming_pids = MapSet.put(done_incoming_pids, from_pid)
+
+    stats = if incoming_pids == nil || done_incoming_pids == incoming_pids do
+      done_received_at = :os.system_time(:micro_seconds)
+      processor.done(worker)
+      done_at = :os.system_time(:micro_seconds)
+
+      Enum.each routers, fn router ->
+        Enum.each router.pids, fn {_, pid} ->
+          GenServer.call(pid, :end_computation, :infinity)
+        end
+      end
+
+      %{ stats | done_received_at: done_received_at, done_at: done_at }
     else
       stats
     end
 
-    stats = if !stats.time_til_first_message do
-      t = :os.system_time(:milli_seconds)
-      %{ stats | time_til_first_message: t - state.stats.start_at }
+    worker = %{ worker | done_incoming_pids: done_incoming_pids, stats: stats }
+
+    { :reply, :ok, worker }
+  end
+
+  def handle_call :stats, _from, worker do
+    { :reply, worker.stats, worker }
+  end
+
+  def handle_cast { :message, message }, worker do
+    %{
+      processor: processor,
+      processor_state: processor_state,
+      stats: stats
+    } = worker
+
+    %{
+      start_at: start_at,
+      code_time: code_time,
+      wait_time: wait_time,
+      message_count: message_count,
+      first_message_at: first_message_at,
+      previous_message_at: previous_message_at
+    } = stats
+
+    {first_message_at, wait_time} = if first_message_at do
+      wait_time = wait_time + :os.system_time(:micro_seconds) - previous_message_at
+      {first_message_at, wait_time}
     else
-      stats
+      first_message_at = :os.system_time(:micro_seconds)
+      wait_time = first_message_at - start_at
+      {first_message_at, wait_time}
     end
 
-    t1 = :os.system_time(:milli_seconds)
-    result = module.process(context, message)
-    t2 = :os.system_time(:milli_seconds)
-    time = stats.time + (t2 - t1)
-    count = stats.count + 1
+    t1 = :os.system_time(:micro_seconds)
+    processor_state =
+      case processor.process(worker, message) do
+        { :__tempest_update_state__, new_state } -> new_state
+        _ -> processor_state
+      end
+    t2 = :os.system_time(:micro_seconds)
 
-    stats = %{ stats | count: count, time: time }
+    code_time = code_time + t2 - t1
+    message_count = message_count + 1
 
-    state = case result do
-      { :update_state, new_state } ->
-        put_in(state.context.state, new_state)
-      _ ->
-        state
-    end
+    stats = %{ stats |
+      code_time: code_time,
+      wait_time: wait_time,
+      message_count: message_count,
+      first_message_at: first_message_at,
+      previous_message_at: :os.system_time(:micro_seconds)
+    }
 
-    # if :random.uniform < 0.0001 do
-    #   throughput = state.stats.count / (state.stats.time / 1000)
-    #   elapse_time = :os.system_time(:milli_seconds) - state.stats.start_at
-    #   real_throughput = state.stats.count / (elapse_time / 1000)
-    #   IO.puts "#{state.name} #{state.module}\n#{throughput} msg/s\n#{real_throughput} msg/s\n#{inspect state.stats}\n"
-    # end
-
-    stats = %{ stats | last_message_at: :os.system_time(:milli_seconds) }
-
-    state = %{ state | stats: stats }
-
-    { :noreply, state }
-  end
-
-  defp update_stat(state, :set, key, value) do
-    %{ state | stats: Map.put(state.stats, key, value) }
-  end
-
-  defp update_stat(state, :add, key, value) do
-    %{ state | stats: Map.update!(state.stats, key, &(&1+value)) }
+    { :noreply, %{ worker | processor_state: processor_state, stats: stats } }
   end
 
 end

@@ -10,12 +10,7 @@ defmodule Tempest.Router.Group do
       message
     end
 
-    n = cond do
-      is_integer(routing_key) ->
-        routing_key
-      is_binary(routing_key) ->
-        :binary.decode_unsigned(routing_key)
-    end
+    n = :crypto.hash(:md5, routing_key) |> :binary.decode_unsigned
 
     pids[ rem(n, count) ]
   end
