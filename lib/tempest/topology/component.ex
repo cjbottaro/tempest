@@ -42,6 +42,8 @@ defmodule Tempest.Topology.Component do
         module.new(options)
       module when is_atom(module) ->
         module.new
+      router when is_map(router) ->
+        router
     end
 
     router = Router.set_pids(router, worker_pids)

@@ -1,4 +1,5 @@
-defmodule Tempest.Processor.FileReader do
+# Reads a file and emits the contents.
+defmodule Tempest.ProcessorLib.FileReader do
   use Tempest.Processor
 
   option :emit, required: true, default: :lines

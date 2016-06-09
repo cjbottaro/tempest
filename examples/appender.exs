@@ -1,4 +1,5 @@
-alias Tempest.{Topology, Processor}
+alias Tempest.{Topology, Processor, Stats}
+alias Tempest.ProcessorLib.{FileReader, Printer}
 
 [ file_name | _ ] = System.argv
 
@@ -14,9 +15,9 @@ defmodule Appender do
 end
 
 topology = Topology.new
-  |> Topology.add_processor(:reader, Processor.FileReader, strip: true)
+  |> Topology.add_processor(:reader, FileReader)
   |> Topology.add_processor(:appender, Appender, suffix: "!!", concurrency: 2)
-  |> Topology.add_processor(:printer, Processor.Printer)
+  |> Topology.add_processor(:printer, Printer)
 
   |> Topology.add_link(:reader, :appender)
   |> Topology.add_link(:appender, :printer)
@@ -24,3 +25,6 @@ topology = Topology.new
   |> Topology.begin_computation
   |> Topology.emit(:reader, file_name)
   |> Topology.end_computation
+
+  |> Stats.get
+  |> Stats.pretty_print

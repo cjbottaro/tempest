@@ -1,10 +1,10 @@
-defmodule Tempest.Processor.EquiJoin do
+defmodule Tempest.ProcessorLib.EquiJoin do
   use Tempest.Processor
-
-  initial_state %{ left: %{}, right: %{} }
 
   option :join_fn, required: true
   option :output_fn,  required: false
+
+  initial_state %{ left: %{}, right: %{} }
 
   def process(context, message) do
     %{ join_fn: join_fn } = get_options(context)
