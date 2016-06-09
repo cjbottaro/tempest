@@ -95,20 +95,20 @@ defmodule Tempest.Worker do
 
     %{
       start_at: start_at,
-      code_time: code_time,
-      wait_time: wait_time,
+      user_time: user_time,
+      idle_time: idle_time,
       message_count: message_count,
       first_message_at: first_message_at,
       previous_message_at: previous_message_at
     } = stats
 
-    {first_message_at, wait_time} = if first_message_at do
-      wait_time = wait_time + :os.system_time(:micro_seconds) - previous_message_at
-      {first_message_at, wait_time}
+    {first_message_at, idle_time} = if first_message_at do
+      idle_time = idle_time + :os.system_time(:micro_seconds) - previous_message_at
+      {first_message_at, idle_time}
     else
       first_message_at = :os.system_time(:micro_seconds)
-      wait_time = first_message_at - start_at
-      {first_message_at, wait_time}
+      idle_time = first_message_at - start_at
+      {first_message_at, idle_time}
     end
 
     t1 = :os.system_time(:micro_seconds)
@@ -119,12 +119,12 @@ defmodule Tempest.Worker do
       end
     t2 = :os.system_time(:micro_seconds)
 
-    code_time = code_time + t2 - t1
+    user_time = user_time + t2 - t1
     message_count = message_count + 1
 
     stats = %{ stats |
-      code_time: code_time,
-      wait_time: wait_time,
+      user_time: user_time,
+      idle_time: idle_time,
       message_count: message_count,
       first_message_at: first_message_at,
       previous_message_at: :os.system_time(:micro_seconds)

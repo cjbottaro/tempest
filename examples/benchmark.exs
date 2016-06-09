@@ -36,7 +36,7 @@ defmodule Benchmark.Summer do
 
   def process(context, count) do
     update_state context, fn state ->
-      state = state + count
+      state + count
     end
   end
 
@@ -63,4 +63,5 @@ Topology.new
   |> Topology.end_computation
 
   |> Stats.get
+  |> Stats.summerize
   |> Stats.pretty_print

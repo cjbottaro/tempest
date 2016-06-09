@@ -6,8 +6,8 @@ defmodule Tempest.Worker.Stats do
     previous_message_at:  nil,
     done_received_at:     nil,
     done_at:              nil,
-    code_time:            0,
-    wait_time:            0
+    user_time:            0,
+    idle_time:            0
   ]
 
   def message_count(stats) do
@@ -18,19 +18,19 @@ defmodule Tempest.Worker.Stats do
     stats.done_received_at - stats.first_message_at
   end
 
-  def code_time(stats) do
-    stats.code_time
+  def user_time(stats) do
+    stats.user_time
   end
 
   def done_time(stats) do
     stats.done_at - stats.done_received_at
   end
 
-  def wait_time(stats) do
-    stats.wait_time - wait_time_first(stats)
+  def idle_time(stats) do
+    stats.idle_time - wait_time(stats)
   end
 
-  def wait_time_first(stats) do
+  def wait_time(stats) do
     stats.first_message_at - stats.start_at
   end
 
@@ -38,8 +38,8 @@ defmodule Tempest.Worker.Stats do
     message_count(stats) / (real_time(stats) / 1_000_000)
   end
 
-  def code_throughput(stats) do
-    message_count(stats) / (code_time(stats) / 1_000_000)
+  def user_throughput(stats) do
+    message_count(stats) / (user_time(stats) / 1_000_000)
   end
 
 end
