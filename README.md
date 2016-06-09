@@ -1,7 +1,7 @@
 # Tempest
 
-Framework for distributed job topologies in Elixir, heavily influenced by
-Apache Storm.
+Framework for distributed job topologies in Elixix (heavily influenced by
+Apache Storm).
 
 The goal of this project is to be able to _very easily_ create and run
 parallel/distributed job topologies. If you want something that is difficult,
@@ -44,7 +44,7 @@ MIX_ENV=examples mix run examples/distributed_join.exs
 
 ## Building your first topology
 
-What is a topology? A topology describes a computation; a pipeline of jobs.
+What is a topology? A topology describes a computation: a pipeline of jobs.
 It's a graph that specifies each job's dependencies and amount of parallelism.
 
 So let's make a very simple topology that reads a file from the filesystem,
@@ -52,11 +52,7 @@ then outputs each line with "!!" appended to it.
 
 The topology will have three processors, linked together like this:
 
-```
-+--------+     +----------+     +---------+
-| reader | --> | appender | --> | printer |
-+--------+     +----------+     +---------+
-```
+![](http://d.pr/i/17GX5+)
 
 Processors are conceptually just functions. The input of a processor is a
 _single_ tuple and the output is _zero or more_ tuples.
@@ -130,11 +126,9 @@ we can link them by name in the calls to `add_link`.
 Also notice we passed `concurrency: 2` to the `Appender` processor. That means
 it will run in two processes, and our topology really looks like this:
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!! TODO GRAPHIC !!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+![](http://d.pr/i/FWlZ+)
 
-And running the topology...
+Now let's run run the topology...
 
 ```elixir
 topology = topology
