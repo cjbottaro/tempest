@@ -4,7 +4,7 @@ Framework for distributed job topologies in Elixir (heavily influenced by
 Apache Storm).
 
 The goal of this project is to be able to _very easily_ create and run
-parallel/distributed job topologies. If you want something that is difficult,
+parallel/distributed job topologies. If you want something difficult,
 just use Apache Storm.
 
 ## Installation
