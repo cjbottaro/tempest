@@ -1,6 +1,6 @@
 # Tempest
 
-Framework for distributed job topologies in Elixix (heavily influenced by
+Framework for distributed job topologies in Elixir (heavily influenced by
 Apache Storm).
 
 The goal of this project is to be able to _very easily_ create and run
