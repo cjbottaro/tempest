@@ -128,7 +128,7 @@ it will run in two processes, and our topology really looks like this:
 
 ![](http://d.pr/i/FWlZ+)
 
-Now let's run run the topology...
+Now let's run the topology...
 
 ```elixir
 topology = topology
@@ -137,7 +137,7 @@ topology = topology
   |> Topology.end_computation
 ```
 
-... should print out each line in `/usr/share/dict/words` with `!!` appended
+... and it should print out each line in `/usr/share/dict/words` with `!!` appended
 to them.
 
 ## Statistics (finding bottlenecks in your topology)
