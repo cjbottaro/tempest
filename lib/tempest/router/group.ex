@@ -10,8 +10,8 @@ defmodule Tempest.Router.Group do
       message
     end
 
-    n = :crypto.hash(:md5, routing_key) |> :binary.decode_unsigned
+    n = :erlang.phash2(routing_key, count)
 
-    pids[ rem(n, count) ]
+    pids[n]
   end
 end
