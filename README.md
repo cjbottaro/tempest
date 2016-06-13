@@ -158,7 +158,7 @@ _TODO: explain the stats._
 
 The main goal of Tempest is ease of use; it ships with "a standard library
 of processors". A lot of topologies can be built without any custom processor
-definitions (including the README example and all examples in `examples/`),
+definitions (including the README example everything in the `examples/` dir),
 just use the processors in `Tempest.ProcessorLib`.
 
 ## Goals (TODOs)
