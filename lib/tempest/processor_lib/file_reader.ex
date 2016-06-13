@@ -6,7 +6,7 @@ defmodule Tempest.ProcessorLib.FileReader do
   option :strip, default: true
 
   def process(context, file_name) do
-    file = File.stream!(file_name, [:read])
+    file = File.stream!(file_name)
 
     case get_options(context) do
       %{ emit: :lines } -> emit_lines(context, file)
