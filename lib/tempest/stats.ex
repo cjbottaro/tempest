@@ -15,6 +15,7 @@ defmodule Tempest.Stats do
     summerized_stats = Enum.map stats.worker_stats, fn {name, processor, worker_stats} ->
       summerized_stats = %{
         message_count:    sum(worker_stats, :message_count),
+        emit_count:       sum(worker_stats, :emit_count),
         start_at:         avg(worker_stats, :start_at),
         first_message_at: avg(worker_stats, :first_message_at),
         done_received_at: avg(worker_stats, :done_received_at),
@@ -47,6 +48,7 @@ defmodule Tempest.Stats do
 
   defp pretty_print_worker_stats(stats, padding) do
     printf("%smessage count     : %d\n",   [padding, message_count(stats)])
+    printf("%semit count        : %d\n",   [padding, emit_count(stats)])
     printf("%sreal time         : %.5f\n", [padding, real_time(stats)/1_000_000])
     printf("%suser time         : %.5f\n", [padding, user_time(stats)/1_000_000])
     printf("%sidle time         : %.5f\n", [padding, idle_time(stats)/1_000_000])
@@ -54,6 +56,7 @@ defmodule Tempest.Stats do
     printf("%sdone time         : %.5f\n", [padding, done_time(stats)/1_000_000])
     printf("%sreal throughput   : %.5f\n", [padding, real_throughput(stats)])
     printf("%suser throughput   : %.5f\n", [padding, user_throughput(stats)])
+    printf("%semit throughput   : %.5f\n", [padding, emit_throughput(stats)])
   end
 
   defp calc_component_stats(component) do

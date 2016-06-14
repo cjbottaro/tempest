@@ -15,12 +15,17 @@ defmodule Tempest.Worker do
   alias Worker.Stats
 
   def init(processor) do
+    # Make sure the worker owns the ets table so
+    # it gets cleaned up when the worker stops.
+    emit_count_ets = :ets.new(:emit_count, [])
+    :ets.insert(emit_count_ets, {:emit_count, 0})
+
     worker = %Worker{
       processor: processor.__struct__,                     # Eww
       processor_state: processor.__struct__.initial_state, # Eww
       processor_options: Processor.get_options(processor),
       done_incoming_pids: MapSet.new,
-      stats: %Stats{}
+      stats: %Stats{ emit_count_ets: emit_count_ets }
     }
     { :ok, worker }
   end
@@ -83,6 +88,14 @@ defmodule Tempest.Worker do
   end
 
   def handle_call :stats, _from, worker do
+    %{ stats: stats } = worker
+
+    {_, emit_count} = :ets.lookup(stats.emit_count_ets, :emit_count) |> hd
+
+    # Man, really wish I could use put_in here... :P
+    stats = %{ stats | emit_count: emit_count }
+    worker = %{ worker | stats: stats }
+
     { :reply, worker.stats, worker }
   end
 

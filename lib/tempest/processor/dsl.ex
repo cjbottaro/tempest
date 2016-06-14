@@ -23,6 +23,7 @@ defmodule Tempest.Processor.Dsl do
       pid = Tempest.Router.route(router, message)
       GenServer.cast pid, { :message, message }
     end
+    :ets.update_counter(context.stats.emit_count_ets, :emit_count, 1)
   end
 
   def get_options(context) do

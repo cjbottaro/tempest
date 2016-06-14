@@ -1,6 +1,8 @@
 defmodule Tempest.Worker.Stats do
   defstruct [
     message_count:        0,
+    emit_count:           0,
+    emit_count_ets:       nil,
     start_at:             nil,
     first_message_at:     nil,
     previous_message_at:  nil,
@@ -12,6 +14,10 @@ defmodule Tempest.Worker.Stats do
 
   def message_count(stats) do
     stats.message_count
+  end
+
+  def emit_count(stats) do
+    stats.emit_count
   end
 
   def real_time(stats) do
@@ -40,6 +46,10 @@ defmodule Tempest.Worker.Stats do
 
   def user_throughput(stats) do
     message_count(stats) / (user_time(stats) / 1_000_000)
+  end
+
+  def emit_throughput(stats) do
+    emit_count(stats) / (user_time(stats) / 1_000_000)
   end
 
 end
